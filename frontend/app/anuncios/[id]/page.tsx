@@ -1,7 +1,7 @@
 'use client';
 
 import { AxiosError } from 'axios';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Flag } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import Button from '@/components/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import api, { API_BASE_URL } from '@/services/api';
 import type { ChatConversation } from '@/types/chat';
+import ReportModal from '@/components/ReportModal';
 
 function getImageUrl(url: string): string {
   if (!url) return '';
@@ -121,6 +122,7 @@ export default function AnuncioDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [isStartingChat, setIsStartingChat] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const isOwner = !!user && user.id === anuncio?.usuario_id;
 
@@ -365,6 +367,23 @@ export default function AnuncioDetailPage() {
                   Entre para enviar mensagem
                 </Link>
               )}
+
+              {!isOwner && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      router.push('/login');
+                    } else {
+                      setIsReportModalOpen(true);
+                    }
+                  }}
+                  className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                >
+                  <Flag size={16} />
+                  Denunciar anúncio
+                </button>
+              )}
             </div>
 
             {/* Gerenciar (dono) */}
@@ -453,6 +472,13 @@ export default function AnuncioDetailPage() {
           </div>
         </div>
       </div>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        tipo="anuncio"
+        alvoId={anuncio.id}
+      />
     </main>
   );
 }

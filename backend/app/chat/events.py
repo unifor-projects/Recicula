@@ -4,13 +4,12 @@ from datetime import datetime, timezone
 
 import bleach
 import socketio.exceptions
-from sqlalchemy.orm import selectinload
 
 from app.chat.presence import check_rate_limit, refresh_online, set_offline, set_online
 from app.chat.socketio_server import sio
 from app.core.security import decode_access_token
 from app.database import SessionLocal
-from app.models.chat import ChatConversation, ChatMessage, ChatParticipant
+from app.models.chat import ChatMessage, ChatParticipant
 from app.models.usuario import Usuario
 
 logger = logging.getLogger("chat.events")
@@ -285,7 +284,6 @@ async def mark_as_read(sid, data):
     session = await sio.get_session(sid)
     user_id = session["user_id"]
     conversation_id = data.get("conversation_id")
-    message_id = data.get("message_id")
     if not conversation_id:
         return
 

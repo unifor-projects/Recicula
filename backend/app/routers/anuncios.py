@@ -1,6 +1,4 @@
-from pathlib import Path
 from typing import List, Optional
-from urllib.parse import urlparse
 from uuid import uuid4
 import math
 
@@ -19,11 +17,9 @@ from app.schemas.anuncio import (
     StatusHistoricoResponse,
 )
 from app.services.geocode import geocode_cep, haversine_km
+from app.services.uploads import ANUNCIO_IMAGES_DIR, delete_image_files
 
 router = APIRouter(prefix="/anuncios", tags=["Anúncios"])
-
-ANUNCIO_IMAGES_DIR = Path(__file__).resolve().parents[2] / "uploads" / "anuncios"
-ANUNCIO_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif"}
 _MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -74,21 +70,6 @@ def _save_image(file: UploadFile) -> tuple[str, str]:
     filename = f"{uuid4().hex}{ext_map[file.content_type]}"
     (ANUNCIO_IMAGES_DIR / filename).write_bytes(data)
     return f"/uploads/anuncios/{filename}", file.content_type
-
-
-def _delete_image_files(imagens: list[AnuncioImagem]) -> None:
-    for img in imagens:
-        path = urlparse(img.url).path
-        prefix = "/uploads/anuncios/"
-        if not path.startswith(prefix):
-            continue
-        file_path = (ANUNCIO_IMAGES_DIR / path.removeprefix(prefix)).resolve()
-        try:
-            file_path.relative_to(ANUNCIO_IMAGES_DIR.resolve())
-        except ValueError:
-            continue
-        if file_path.is_file():
-            file_path.unlink()
 
 
 @router.get("/", response_model=List[AnuncioListResponse], summary="Buscar e listar anúncios")
@@ -291,7 +272,7 @@ async def atualizar_anuncio(
 
     if valid_files:
         existing = db.query(AnuncioImagem).filter(AnuncioImagem.anuncio_id == anuncio_id).all()
-        _delete_image_files(existing)
+        delete_image_files(existing)
         db.query(AnuncioImagem).filter(AnuncioImagem.anuncio_id == anuncio_id).delete()
         for i, file in enumerate(valid_files):
             url, content_type = _save_image(file)
@@ -346,6 +327,6 @@ def excluir_anuncio(
     anuncio = _get_anuncio_or_404(anuncio_id, db)
     if anuncio.usuario_id != current_user.id and not current_user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sem permissão")
-    _delete_image_files(anuncio.imagens)
+    delete_image_files(anuncio.imagens)
     db.delete(anuncio)
     db.commit()

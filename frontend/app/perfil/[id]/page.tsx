@@ -1,12 +1,14 @@
 'use client';
 
 import { AxiosError } from 'axios';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import Button from '@/components/Button';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/services/api';
 import { motion } from 'framer-motion';
+import { Flag } from 'lucide-react';
+import ReportModal from '@/components/ReportModal';
 
 interface PerfilAnuncio {
   id: number;
@@ -91,9 +93,11 @@ function getInitials(nome: string): string {
 export default function PerfilPage() {
   const params = useParams<{ id: string }>();
   const perfilId = Number(params?.id ?? NaN);
+  const router = useRouter();
   const { user } = useAuth();
 
   const [perfil, setPerfil] = useState<PerfilPublico | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -298,6 +302,23 @@ export default function PerfilPage() {
                 Editar Perfil
               </Button>
             ) : null}
+
+            {!isOwner ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    router.push('/login');
+                  } else {
+                    setIsReportModalOpen(true);
+                  }
+                }}
+                className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 gap-2"
+              >
+                <Flag size={15} />
+                Denunciar
+              </button>
+            ) : null}
           </div>
 
           <div className="mt-5">
@@ -417,6 +438,13 @@ export default function PerfilPage() {
           )}
         </article>
       </section>
+
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        tipo="usuario"
+        alvoId={perfil.id}
+      />
     </main>
   );
 }

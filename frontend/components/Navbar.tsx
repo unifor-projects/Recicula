@@ -80,6 +80,9 @@ export default function Navbar() {
           { href: '/anuncios/meus', label: 'Meus Anúncios' },
         ]
       : []),
+    ...(isAuthenticated && user?.is_admin
+      ? [{ href: '/admin/moderacao', label: 'Moderação' }]
+      : []),
   ];
 
   return (

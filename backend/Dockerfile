@@ -9,12 +9,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
-# Copy application source
 COPY . .
 
-# Make entrypoint executable
-RUN chmod +x entrypoint.sh
+RUN sed -n '1,5p' /app/entrypoint.sh | cat -A
+
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

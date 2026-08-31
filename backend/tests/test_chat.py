@@ -1,8 +1,6 @@
 """Testes para os endpoints de chat: /api/chat/*"""
 from unittest.mock import patch
 
-import pytest
-
 REGISTER_URL = "/auth/registrar"
 VERIFY_EMAIL_URL = "/auth/verify-email"
 LOGIN_URL = "/auth/login"

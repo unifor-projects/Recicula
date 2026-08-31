@@ -3,6 +3,7 @@ from app.models.categoria import Categoria
 from app.models.anuncio import Anuncio, AnuncioImagem, StatusHistorico, TipoAnuncio, CondicaoItem, StatusAnuncio
 from app.models.mensagem import Conversa, Mensagem
 from app.models.denuncia import Denuncia, StatusDenuncia
+from app.models.decisao_administrativa import DecisaoAdministrativa, AcaoAdministrativa
 
 __all__ = [
     "Usuario",
@@ -17,4 +18,6 @@ __all__ = [
     "Mensagem",
     "Denuncia",
     "StatusDenuncia",
+    "DecisaoAdministrativa",
+    "AcaoAdministrativa",
 ]
