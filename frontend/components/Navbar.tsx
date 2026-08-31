@@ -87,7 +87,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-4">
         <Link
           href="/anuncios"
           onClick={closeMobileMenu}

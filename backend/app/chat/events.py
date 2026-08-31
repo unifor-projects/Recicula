@@ -37,10 +37,17 @@ def _room_name(conversation_id: int) -> str:
 @sio.event
 async def connect(sid, environ, auth):
     if not auth or "token" not in auth:
+        logger.warning("Socket connect rejected (sid=%s): token ausente. auth=%r", sid, auth)
         raise socketio.exceptions.ConnectionRefusedError("Token obrigatório")
 
     payload = decode_access_token(auth["token"])
     if not payload or "sub" not in payload:
+        logger.warning(
+            "Socket connect rejected (sid=%s): token inválido/expirado ou SECRET_KEY diferente "
+            "(decode retornou %r)",
+            sid,
+            payload,
+        )
         raise socketio.exceptions.ConnectionRefusedError("Token inválido")
 
     user_id = int(payload["sub"])
@@ -57,6 +64,11 @@ async def connect(sid, environ, auth):
 
     user_data = await asyncio.to_thread(_load_user)
     if not user_data:
+        logger.warning(
+            "Socket connect rejected (sid=%s): usuário %s não encontrado ou inativo",
+            sid,
+            user_id,
+        )
         raise socketio.exceptions.ConnectionRefusedError("Usuário inválido")
 
     _sid_to_user[sid] = user_data
@@ -110,7 +122,7 @@ async def join_room(sid, data):
         return
 
     room = _room_name(conversation_id)
-    sio.enter_room(sid, room)
+    await sio.enter_room(sid, room)
     session["rooms"] = session.get("rooms", set()) | {conversation_id}
     await sio.save_session(sid, session)
 
@@ -123,7 +135,7 @@ async def leave_room(sid, data):
         return
 
     room = _room_name(conversation_id)
-    sio.leave_room(sid, room)
+    await sio.leave_room(sid, room)
     rooms = session.get("rooms", set())
     rooms.discard(conversation_id)
     session["rooms"] = rooms

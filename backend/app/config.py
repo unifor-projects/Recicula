@@ -1,9 +1,17 @@
 import secrets
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env relative to the backend/ directory (parent of app/), so the file is
+# loaded no matter which working directory uvicorn is started from. A relative
+# "env_file" would silently fall back to the random SECRET_KEY default whenever the
+# process is launched from somewhere other than backend/, invalidating all tokens.
+_ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=str(_ENV_FILE), extra="ignore")
 
     # App
     APP_ENV: str = "development"

@@ -233,7 +233,7 @@ export default function PerfilPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 px-4 py-8">
-        <section className="mx-auto w-full max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
           <p className="text-sm text-gray-600">Carregando perfil...</p>
         </section>
       </main>
@@ -243,7 +243,7 @@ export default function PerfilPage() {
   if (errorMessage && !perfil) {
     return (
       <main className="min-h-screen bg-gray-50 px-4 py-8">
-        <section className="mx-auto w-full max-w-3xl rounded-2xl bg-white p-6 shadow-sm">
+        <section className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-6 shadow-sm">
           <p className="text-sm text-red-600">{errorMessage}</p>
         </section>
       </main>
@@ -254,7 +254,7 @@ export default function PerfilPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <section className="mx-auto w-full max-w-3xl space-y-6">
+      <section className="mx-auto w-full max-w-4xl space-y-6">
         <article className="rounded-2xl bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">

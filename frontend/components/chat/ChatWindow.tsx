@@ -59,6 +59,10 @@ export default function ChatWindow({ conversation, currentUserId, onBack }: Prop
   const allTypingUsers = useChatStore((s) => s.typingUsers);
   const typingUsers = allTypingUsers.filter((t) => t.conversation_id === conversation.id);
   const onlineUsers = useChatStore((s) => s.onlineUsers);
+  // Realtime signal: updated by the global socket listener (useSocket) for every
+  // incoming message. We react to it below instead of relying solely on this
+  // component's own socket listener.
+  const lastIncomingMessage = useChatStore((s) => s.lastIncomingMessage);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -97,26 +101,49 @@ export default function ChatWindow({ conversation, currentUserId, onBack }: Prop
     }
   }, [conversation.id, clearUnread]);
 
-  // Listen directly to the socket for new messages.
-  // Using local state ensures React always re-renders when a message arrives,
-  // regardless of global store behaviour.
-  useEffect(() => {
-    const convId = conversation.id;
-
-    function handleNewMessage(msg: ChatMessage) {
-      if (msg.conversation_id !== convId) return;
+  // Merge an incoming message into local state. Idempotent: ignores duplicates
+  // by id and replaces our own optimistic placeholder (temporary negative id).
+  const mergeIncoming = useCallback(
+    (msg: ChatMessage) => {
+      if (msg.conversation_id !== conversationIdRef.current) return;
       setMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
+        let next = prev;
+        if (msg.sender_id === currentUserId) {
+          const idx = next.findIndex((m) => m.id < 0 && m.content === msg.content);
+          if (idx !== -1) {
+            next = [...next.slice(0, idx), ...next.slice(idx + 1)];
+          }
+        }
+        return [...next, msg];
       });
       shouldAutoScroll.current = true;
 
       // Mark as read if we are the recipient
       if (msg.sender_id !== currentUserId) {
-        clearUnread(convId);
-        const socket = getSocket();
-        socket?.emit('mark_as_read', { conversation_id: convId, message_id: msg.id });
+        clearUnread(msg.conversation_id);
+        getSocket()?.emit('mark_as_read', {
+          conversation_id: msg.conversation_id,
+          message_id: msg.id,
+        });
       }
+    },
+    [currentUserId, clearUnread],
+  );
+
+  // React to the global socket listener (useSocket) via the store signal. This
+  // guarantees realtime updates even if this component's own listener below
+  // wasn't attached in time (e.g. socket connected after mount).
+  useEffect(() => {
+    if (lastIncomingMessage) mergeIncoming(lastIncomingMessage);
+  }, [lastIncomingMessage, mergeIncoming]);
+
+  // Also listen directly to the socket as a second, immediate path.
+  useEffect(() => {
+    const convId = conversation.id;
+
+    function handleNewMessage(msg: ChatMessage) {
+      mergeIncoming(msg);
     }
 
     // Re-join room on socket reconnect so we never miss messages
@@ -132,7 +159,7 @@ export default function ChatWindow({ conversation, currentUserId, onBack }: Prop
       socket?.off('new_message', handleNewMessage);
       socket?.off('connect', handleConnect);
     };
-  }, [conversation.id, currentUserId, clearUnread]);
+  }, [conversation.id, mergeIncoming]);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -176,12 +203,34 @@ export default function ChatWindow({ conversation, currentUserId, onBack }: Prop
     (content: string) => {
       const socket = getSocket();
       if (!socket) return;
+
+      // Optimistic update: show the message immediately with a temporary
+      // negative id. The real message (with a positive id) arrives via the
+      // "new_message" echo and replaces this placeholder in handleNewMessage.
+      const me = conversation.participants.find((p) => p.user_id === currentUserId);
+      const optimistic: ChatMessage = {
+        id: -Date.now(),
+        conversation_id: conversation.id,
+        sender_id: currentUserId,
+        content,
+        created_at: new Date().toISOString(),
+        sender: {
+          id: currentUserId,
+          nome: me?.user.nome ?? '',
+          foto_url: me?.user.foto_url ?? null,
+          localizacao: me?.user.localizacao ?? null,
+          criado_em: me?.user.criado_em ?? new Date().toISOString(),
+        },
+      };
+      setMessages((prev) => [...prev, optimistic]);
+      shouldAutoScroll.current = true;
+
       socket.emit('send_message', {
         conversation_id: conversation.id,
         content,
       });
     },
-    [conversation.id],
+    [conversation.id, currentUserId],
   );
 
   let lastDateStr = '';

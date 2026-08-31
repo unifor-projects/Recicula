@@ -353,7 +353,7 @@ export default function AnunciosPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-6xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         {/* Cabeçalho */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -385,7 +385,7 @@ export default function AnunciosPage() {
         </header>
 
         {/* Filtros */}
-        <section className="rounded-2xl border border-green-300 bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border bg-white p-4 shadow-sm">
           <form onSubmit={handleSearch} className="flex flex-col gap-3">
 
             {/* Linha 1 — busca + tipo + botão */}

@@ -58,7 +58,7 @@ uv run alembic revision --autogenerate -m "descricao da mudança"
 ## Executar
 
 ```bash
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.asgi:socket_app --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Executar com Docker Compose

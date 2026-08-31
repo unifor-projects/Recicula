@@ -206,7 +206,7 @@ export default function EditarAnuncioPage() {
   if (errorMessage && !anuncioOriginal) {
     return (
       <main className="min-h-screen bg-gray-50 px-4 py-8">
-        <div className="mx-auto max-w-2xl space-y-4">
+        <div className="mx-auto max-w-4xl space-y-4">
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{errorMessage}</p>
           <Link href="/anuncios" className="text-sm text-green-600 hover:underline">
             ← Voltar para anúncios
@@ -218,7 +218,7 @@ export default function EditarAnuncioPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         <header>
           <nav className="mb-2 flex items-center gap-2 text-sm text-gray-500">
             <Link href="/anuncios" className="hover:text-green-600">

@@ -9,6 +9,10 @@ interface ChatState {
   onlineUsers: Set<number>;
   totalUnread: number;
   soundEnabled: boolean;
+  // Last message delivered via the global socket listener (useSocket). ChatWindow
+  // reacts to this so realtime delivery never depends on its own per-mount socket
+  // listener being attached at the right moment.
+  lastIncomingMessage: ChatMessage | null;
 
   setConversations: (conversations: ChatConversation[]) => void;
   setActiveConversation: (id: number | null) => void;
@@ -30,7 +34,7 @@ interface ChatState {
   toggleSound: () => void;
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>((set) => ({
   conversations: [],
   activeConversationId: null,
   messages: {},
@@ -38,6 +42,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   onlineUsers: new Set(),
   totalUnread: 0,
   soundEnabled: typeof window !== 'undefined' ? localStorage.getItem('chat_sound') !== 'false' : true,
+  lastIncomingMessage: null,
 
   setConversations: (conversations) => set({ conversations }),
 
@@ -59,12 +64,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   addMessage: (message) =>
     set((state) => {
       const convMessages = state.messages[message.conversation_id] || [];
-      if (convMessages.some((m) => m.id === message.id)) return state;
+      if (convMessages.some((m) => m.id === message.id)) {
+        // Still surface it as the latest incoming message so any UI reacting to
+        // the signal (e.g. ChatWindow) re-renders even on duplicate store writes.
+        return { lastIncomingMessage: message };
+      }
       return {
         messages: {
           ...state.messages,
           [message.conversation_id]: [...convMessages, message],
         },
+        lastIncomingMessage: message,
       };
     }),
 

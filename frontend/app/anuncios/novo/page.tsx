@@ -134,8 +134,8 @@ export default function NovoAnuncioPage() {
 
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
-      <div className="mx-auto max-w-2xl space-y-6">
-        <header>
+      <div className="mx-auto max-w-4xl space-y-6">
+        <header className="">
           <nav className="mb-2 flex items-center gap-2 text-sm text-gray-500">
             <Link href="/anuncios" className="hover:text-green-600">
               Anúncios
