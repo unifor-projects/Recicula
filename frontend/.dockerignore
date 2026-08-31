@@ -1,0 +1,12 @@
+# node_modules vem do `npm ci` na imagem (e de um volume nomeado no compose);
+# .next é build do host e não deve vazar para dentro da imagem.
+node_modules/
+.next/
+out/
+
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+tsconfig.tsbuildinfo

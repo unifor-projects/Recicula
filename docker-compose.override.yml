@@ -1,9 +1,21 @@
 services:
   db:
     ports:
-      - "5432:5432"
+      # 5433 no host: a porta 5432 costuma estar ocupada pelo PostgreSQL do sistema.
+      # Só afeta acesso externo (psql/DBeaver); o backend usa db:5432 pela rede interna.
+      - "5433:5432"
   backend:
+    # Em dev, falhar de uma vez em vez de reiniciar em loop: com restart automatico
+    # um erro de bind de porta vira um "could not translate host name db" enganoso,
+    # porque o container volta sem a rede configurada.
+    restart: "no"
     ports:
+      # O navegador fala com o Socket.IO em http://localhost:8000/socket.io,
+      # então esta porta precisa estar publicada para o chat funcionar.
       - "8000:8000"
-# Este arquivo expõe as portas apenas em desenvolvimento.
+    environment:
+      # Cria alice@recircula.dev e bruno@recircula.dev já ativos e verificados.
+      SEED_DEV_USERS: "true"
+      SEED_DEV_PASSWORD: "senha123"
+# Este arquivo expõe as portas e popula usuários de teste apenas em desenvolvimento.
 # Não use em produção!
