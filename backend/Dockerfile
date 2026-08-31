@@ -11,8 +11,6 @@ RUN uv sync --frozen
 
 COPY . .
 
-RUN sed -n '1,5p' /app/entrypoint.sh | cat -A
-
 RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000

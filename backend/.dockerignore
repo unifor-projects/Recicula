@@ -1,0 +1,14 @@
+# O COPY . . sobrescreveria o /app/.venv criado pelo `uv sync --frozen` com o
+# venv do host, quebrando a reprodutibilidade garantida pelo uv.lock.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+.env
+.env.*
+!.env.example
+
+.pytest_cache/
+.ruff_cache/
+uploads/
