@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import api from '@/services/api';
 import { connectSocket, disconnectSocket } from '@/services/socket';
 import { useChatStore } from '@/store/chatStore';
 import type { ChatMessage } from '@/types/chat';
@@ -40,6 +41,21 @@ export function useSocket() {
       if (activeConversationId) {
         socket.emit('join_room', { conversation_id: activeConversationId });
       }
+      // Pede o estado de presença dos contatos. O servidor não pode mandar isso
+      // sozinho dentro do handler `connect`: o evento sairia antes do pacote
+      // CONNECT e o cliente o descartaria.
+      socket.emit('request_presence');
+      // O badge da navbar aparece em qualquer página, mas até aqui só era
+      // preenchido ao abrir /chat. Buscar no connect (e a cada reconexão)
+      // mantém a contagem correta desde o primeiro render.
+      api
+        .get<{ total_unread: number }>('/api/chat/unread-count')
+        .then((res) => store().setTotalUnread(res.data.total_unread))
+        .catch(() => {});
+    }
+
+    function handlePresenceSync(data: { online_user_ids: number[] }) {
+      store().setOnlineUsers(data.online_user_ids);
     }
 
     function handleNewMessage(data: ChatMessage) {
@@ -57,6 +73,10 @@ export function useSocket() {
       message_preview: string;
       sender: { nome: string };
     }) {
+      // O servidor manda `notification` (em vez de `new_message`) justamente para
+      // quem não está na sala — ou seja, exatamente o caso em que a mensagem conta
+      // como não lida. Sem isto o badge nunca subia fora da página /chat.
+      store().incrementUnread(data.conversation_id);
       playNotificationSound();
       toast(data.sender.nome, {
         description: data.message_preview,
@@ -96,6 +116,7 @@ export function useSocket() {
     }
 
     socket.on('connect', handleConnect);
+    socket.on('presence_sync', handlePresenceSync);
     socket.on('new_message', handleNewMessage);
     socket.on('notification', handleNotification);
     socket.on('user_typing', handleUserTyping);
@@ -111,6 +132,7 @@ export function useSocket() {
 
     return () => {
       socket.off('connect', handleConnect);
+      socket.off('presence_sync', handlePresenceSync);
       socket.off('new_message', handleNewMessage);
       socket.off('notification', handleNotification);
       socket.off('user_typing', handleUserTyping);

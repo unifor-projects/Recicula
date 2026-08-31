@@ -45,6 +45,15 @@ export default function ChatPageClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [convParam, conversations.length]);
 
+  // Ao sair de /chat, esquecer a conversa ativa. Ela é o que o useSocket usa
+  // para re-entrar na sala a cada reconexão — mantê-la faria o cliente voltar
+  // para a sala mesmo com o chat fechado, suprimindo as notificações.
+  useEffect(() => {
+    return () => {
+      useChatStore.getState().setActiveConversation(null);
+    };
+  }, []);
+
   const handleSelectConversation = useCallback(
     (id: number) => {
       const socket = getSocket();

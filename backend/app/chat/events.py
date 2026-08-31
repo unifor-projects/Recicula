@@ -4,8 +4,14 @@ from datetime import datetime, timezone
 
 import bleach
 import socketio.exceptions
+from sqlalchemy import select
 
-from app.chat.presence import check_rate_limit, refresh_online, set_offline, set_online
+from app.chat.presence import (
+    add_connection,
+    check_rate_limit,
+    online_among,
+    remove_connection,
+)
 from app.chat.socketio_server import sio
 from app.core.security import decode_access_token
 from app.database import SessionLocal
@@ -74,9 +80,32 @@ async def connect(sid, environ, auth):
     _sid_to_user[sid] = user_data
     await sio.save_session(sid, {"user_id": user_data["id"], "rooms": set()})
 
-    await set_online(user_data["id"])
-    await _notify_contacts_presence(user_data["id"], online=True)
+    contact_ids = await _get_contact_ids(user_data["id"])
+
+    # Avisa os contatos só na primeira conexão; abas adicionais não mudam o estado.
+    if await add_connection(user_data["id"]):
+        await _emit_to_contacts(contact_ids, "user_online", {"user_id": user_data["id"]})
+
+    # O sync inicial NÃO é enviado aqui: um emit para o próprio sid dentro do
+    # handler `connect` é enfileirado antes do pacote CONNECT (40), e o cliente
+    # descarta eventos que chegam antes dele. O cliente pede via `request_presence`.
     logger.info("User %s connected (sid=%s)", user_data["id"], sid)
+
+
+@sio.event
+async def request_presence(sid, data=None):
+    """Sync inicial de presença, pedido pelo cliente logo após conectar.
+
+    Sem isto o cliente só descobre quem está online quando algum contato conecta
+    *depois* dele — quem já estava online aparecia como offline indefinidamente.
+    """
+    session = await sio.get_session(sid)
+    contact_ids = await _get_contact_ids(session["user_id"])
+    await sio.emit(
+        "presence_sync",
+        {"online_user_ids": await online_among(contact_ids)},
+        to=sid,
+    )
 
 
 @sio.event
@@ -85,10 +114,9 @@ async def disconnect(sid):
     if not user_data:
         return
 
-    remaining_sids = [s for s, u in _sid_to_user.items() if u["id"] == user_data["id"]]
-    if not remaining_sids:
-        await set_offline(user_data["id"])
-        await _notify_contacts_presence(user_data["id"], online=False)
+    if await remove_connection(user_data["id"]):
+        contact_ids = await _get_contact_ids(user_data["id"])
+        await _emit_to_contacts(contact_ids, "user_offline", {"user_id": user_data["id"]})
 
     logger.info("User %s disconnected (sid=%s)", user_data["id"], sid)
 
@@ -218,26 +246,29 @@ async def send_message(sid, data):
 
     await sio.emit("new_message", msg_data, room=room)
 
-    await refresh_online(user_id)
-
-    for pid in participant_ids:
-        if pid == user_id:
-            continue
-        for other_sid, other_user in _sid_to_user.items():
-            if other_user["id"] == pid:
+    targets = {pid for pid in participant_ids if pid != user_id}
+    for other_sid, other_user in list(_sid_to_user.items()):
+        if other_user["id"] in targets:
+            try:
                 other_session = await sio.get_session(other_sid)
-                other_rooms = other_session.get("rooms", set())
-                if conversation_id not in other_rooms:
-                    await sio.emit(
-                        "notification",
-                        {
-                            "type": "new_message",
-                            "conversation_id": conversation_id,
-                            "message_preview": content[:100],
-                            "sender": msg_data["sender"],
-                        },
-                        to=other_sid,
-                    )
+            except KeyError:
+                # Socket já encerrado cuja entrada ainda não foi limpa. Sem este
+                # guard o KeyError aborta o laço e os participantes seguintes
+                # ficam sem notificação nenhuma.
+                _sid_to_user.pop(other_sid, None)
+                continue
+            other_rooms = other_session.get("rooms", set())
+            if conversation_id not in other_rooms:
+                await sio.emit(
+                    "notification",
+                    {
+                        "type": "new_message",
+                        "conversation_id": conversation_id,
+                        "message_preview": content[:100],
+                        "sender": msg_data["sender"],
+                    },
+                    to=other_sid,
+                )
 
 
 @sio.event
@@ -324,8 +355,10 @@ async def mark_as_read(sid, data):
     )
 
 
-async def _notify_contacts_presence(user_id: int, online: bool):
-    def _get_contact_ids():
+async def _get_contact_ids(user_id: int) -> list[int]:
+    """IDs de todos os usuários que dividem alguma conversa com `user_id`."""
+
+    def _query():
         db = _get_db()
         try:
             my_convs = (
@@ -336,7 +369,7 @@ async def _notify_contacts_presence(user_id: int, online: bool):
             contacts = (
                 db.query(ChatParticipant.user_id)
                 .filter(
-                    ChatParticipant.conversation_id.in_(my_convs),
+                    ChatParticipant.conversation_id.in_(select(my_convs)),
                     ChatParticipant.user_id != user_id,
                 )
                 .distinct()
@@ -346,10 +379,12 @@ async def _notify_contacts_presence(user_id: int, online: bool):
         finally:
             _close_db(db)
 
-    contact_ids = await asyncio.to_thread(_get_contact_ids)
-    event = "user_online" if online else "user_offline"
+    return await asyncio.to_thread(_query)
 
-    for contact_id in contact_ids:
-        for other_sid, other_user in _sid_to_user.items():
-            if other_user["id"] == contact_id:
-                await sio.emit(event, {"user_id": user_id}, to=other_sid)
+
+async def _emit_to_contacts(contact_ids: list[int], event: str, data: dict) -> None:
+    """Envia `event` para todos os sockets abertos dos contatos informados."""
+    targets = set(contact_ids)
+    for other_sid, other_user in list(_sid_to_user.items()):
+        if other_user["id"] in targets:
+            await sio.emit(event, data, to=other_sid)

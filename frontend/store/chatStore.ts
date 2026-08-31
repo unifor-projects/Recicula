@@ -24,6 +24,7 @@ interface ChatState {
   addTypingUser: (user: TypingUser) => void;
   removeTypingUser: (conversationId: number, userId: number) => void;
 
+  setOnlineUsers: (userIds: number[]) => void;
   setUserOnline: (userId: number) => void;
   setUserOffline: (userId: number) => void;
 
@@ -106,6 +107,10 @@ export const useChatStore = create<ChatState>((set) => ({
         (t) => !(t.conversation_id === conversationId && t.user_id === userId),
       ),
     })),
+
+  // Substitui o conjunto inteiro (evento presence_sync, no connect/reconnect):
+  // quem ficou offline enquanto o socket estava caído precisa sair da lista.
+  setOnlineUsers: (userIds) => set({ onlineUsers: new Set(userIds) }),
 
   setUserOnline: (userId) =>
     set((state) => {

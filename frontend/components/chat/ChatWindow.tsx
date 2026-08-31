@@ -99,6 +99,14 @@ export default function ChatWindow({ conversation, currentUserId, onBack }: Prop
       socket.emit('mark_as_read', { conversation_id: conversation.id });
       socket.emit('join_room', { conversation_id: conversation.id });
     }
+
+    return () => {
+      // Sair da sala ao desmontar. Estar na sala é o que diz ao servidor "estou
+      // lendo esta conversa": enquanto o cliente ficava dentro dela mesmo depois
+      // de sair de /chat, o servidor mandava `new_message` em vez de
+      // `notification`, e o toast e o badge nunca apareciam.
+      getSocket()?.emit('leave_room', { conversation_id: conversation.id });
+    };
   }, [conversation.id, clearUnread]);
 
   // Merge an incoming message into local state. Idempotent: ignores duplicates
